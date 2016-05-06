@@ -1,69 +1,78 @@
 #include<stdio.h>
-#include<stdlib.h>
+#include<netdb.h>
 #include<sys/types.h>
 #include<sys/socket.h>
 #include<netinet/in.h>
-#include<string.h> //inet_addr
-int main (int argc, char *argv[])
+#include<string.h>
+#define MAX_HOSTNAME 255
+void error(char *msg)
 {
-	int socket_desc, mysock, rval;
-	int op_val,route;
-	struct sockaddr_in serv_addr;
-	char buff[1024];
-	//create socket
-	socket_desc = socket(AF_INET, SOCK_STREAM, 0);
+perror(msg);
+exit(0);
+}
+int main(int argc, char *argv[])
+{
+int ret, buffylen, sock, n;
+socklen_t length, fromlen;
+struct sockaddr_in server;
+struct sockaddr_in from;
+char buf[1024], buffy[1024], name[10]="message:";
+char hostbuffer[MAX_HOSTNAME+1];
+sock=socket(AF_INET, SOCK_DGRAM, 0);
+if(sock<0)
+{
+error("opening socket");
+}
+strcpy(hostbuffer, "Sheeda");
+//sethostname function
+ret=sethostname(hostbuffer, strlen(hostbuffer));
+if(ret==0){
+printf("host name: %s\n",hostbuffer);
+}
+//end of sethostname
+length=sizeof(server);
+bzero(&server, length);
+server.sin_family=AF_INET;
+server.sin_addr.s_addr=INADDR_ANY;
+server.sin_port=htons(1030);
+if(bind(sock,(struct sockaddr *)&server,length)<0)
+{
+error("binding");
+}
+fromlen=sizeof(struct sockaddr_in);
+//getsockname function
+ret=getsockname(sock,(struct sockaddr_in *)&server, &length);
+if(ret==0)
+{
+printf("local address:%s\n", inet_ntop(server.sin_addr));
+printf("local address:%d\n", server.sin_port);
+}
+//end of get sockname
+//while(1)
+//{
+n=recvfrom(sock,buf,1024,0,(struct sockaddr *)&from, &fromlen);
+if(n<0)
+{
+error("recvfrom");
+}
+//getpeername function
+ret= getpeername(sock,(struct sockaddr *)&from,&fromlen);
+if(ret==0)
+{
+printf("peer address: %s\n", inet_ntop(from.sin_addr));
+printf("peer port: %d\n", from.sin_port);
+}
+//end of getpeername
+write(1,name,strlen(name));
+for(int i=0;i<n;i++)
+	buffy[i]=toupper(buf[i]);
+write(1,buf,n);
+write(1,"\n",1);
+n=sendto(sock,buffy,strlen(buffy),0,&from,fromlen);
+if(n<0)
+{
+error("sendto");
+}
+//}
+}
 
-	if(socket_desc <0)
-	{
-	printf("Failed to sreate socket");
-	exit(1);
-	}
-serv_addr.sin_addr.s_addr = INADDR_ANY;
-serv_addr.sin_family = AF_INET;
-serv_addr.sin_port =htons(2500);
-//bind
-if(bind(socket_desc,(struct sockaddr *)&serv_addr,sizeof(serv_addr)))
-{
-	perror("bind failed");
-	exit(1);
-}
-//listen
-listen(socket_desc,5);
-//accept and incoming connection
-do{
-mysock = accept(socket_desc,(struct sockaddr *)0,0);
-if(mysock ==-1)
-{
-perror("accept failed");
-}
-else
-{
-memset(buff, 0, sizeof(buff));
-if((rval=recv(mysock, buff, sizeof(buff),0))<0)
-perror("reading message error");
-else if(rval == 0)
-printf("ending connection");
-else
-printf("MSG : %s\n",buff);
-printf("got the message(rval = %d)\n", rval);
-
-getsockopt(socket_desc, SOL_SOCKET, SO_DONTROUTE, &op_val, &route);
-if(op_val !=0)
-{
-	printf("UNABLE TO GET \n");
-}
-printf("Get SO_DONTROUTE : %d\n",op\val);
-op_val = 1;
-setsockopt(socket_desc, SOL_SOCKET, SO_DONTROUTE, &op_val, sizeof(op_val));
-	printf("ALREADY set \n");
-getsockopt(socket_desc, SOL_SOCKET, SO_DONTROUTE,&op_val, &route);
-if(op_val == 0)
-	printf("UNABLE TO GET \n");
-else
-	printf("GET NEW SO_DONTROUTE : %d\n", op_val);
-close(mysock);
-}
-}
-while(1);
-return 0;
-}
